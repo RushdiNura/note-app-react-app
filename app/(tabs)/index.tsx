@@ -1,98 +1,260 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import { Swipeable } from "react-native-gesture-handler";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+// headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [input, setInput] = useState("");
+  const [notes, setNotes] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [editText, setEditText] = useState("");
+  const [dark, setDark] = useState(true);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useEffect(() => {
+    loadNotes();
+    loadTheme();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem("notes", JSON.stringify(notes));
+  }, [notes]);
+
+  useEffect(() => {
+    AsyncStorage.setItem("theme", JSON.stringify(dark));
+  }, [dark]);
+
+  const loadNotes = async () => {
+    try {
+      const data = await AsyncStorage.getItem("notes");
+      if (data !== null) {
+        setNotes(JSON.parse(data));
+      }
+    } catch (error) {
+      console.error("Error loading notes:", error);
+    }
+  };
+
+  const loadTheme = async () => {
+    try {
+      const t = await AsyncStorage.getItem("theme");
+      if (t !== null) setDark(JSON.parse(t));
+    } catch (error) {
+      console.error("Error loading themes:", error);
+    }
+  };
+
+  function handleAddNotes() {
+    if (!input.trim()) return;
+    setNotes((prev) => [...prev, { id: Date.now().toString(), text: input }]);
+    setInput("");
+  }
+
+  function startEdit(todo) {
+    setEditId(todo.id);
+    setEditText(todo.text);
+  }
+
+  function saveEdit() {
+    setNotes((p) =>
+      p.map((t) => (t.id === editId ? { ...t, text: editText } : t)),
+    );
+    setEditId(null);
+    setEditText("");
+  }
+
+  function cancelEdit() {
+    setEditId(null);
+    setEditText("");
+  }
+
+  function deleteTodo(id) {
+    setNotes((p) => p.filter((t) => t.id !== id));
+  }
+
+  const bg = dark ? "#121212" : "#F5F5F5";
+  const text = dark ? "white" : "#121212";
+
+  function renderItem({ item }) {
+    return (
+      <Swipeable
+        renderRightActions={() => (
+          <Pressable
+            style={styles.swipeDelete}
+            onPress={() => deleteTodo(item.id)}
+          >
+            <Ionicons name="trash-outline" size={24} color="white" />
+          </Pressable>
+        )}
+      >
+        <View
+          style={[
+            styles.todoItem,
+            { backgroundColor: dark ? "#1E1E1E" : "#FFF" },
+          ]}
+        >
+          {editId === item.id ? (
+            <>
+              {" "}
+              
+                <TextInput
+                  style={[styles.editInput, { color: text }]}
+                  value={editText}
+                  onChangeText={setEditText}
+                  autoFocus
+                />
+                <Ionicons
+                  name="checkmark"
+                  size={24}
+                  color="green"
+                  onPress={saveEdit}
+                />
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color="red"
+                  onPress={cancelEdit}
+                />
+          
+            </>
+          ) : (
+            <>
+              <Text
+                style={[
+                  styles.todoText,
+                  {
+                    color: text,
+                    textDecorationLine: item.completed
+                      ? "line-through"
+                      : "none",
+                    opacity: item.completed ? 0.5 : 1,
+                  },
+                ]}
+              >
+                {item.text}
+              </Text>
+
+              <Ionicons
+                name="create-outline"
+                size={22}
+                color={text}
+                onPress={() => startEdit(item)}
+              />
+            </>
+          )}
+        </View>
+      </Swipeable>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: bg }]}>
+      <View style={styles.cont}>
+        <Text style={[styles.title, { color: text }]}>Put Your Notes Here</Text>
+        <Pressable onPress={() => setDark((p) => !p)}>
+          <Ionicons
+            name={dark ? "sunny-outline" : "moon-outline"}
+            size={26}
+            color={text}
+          />
+        </Pressable>
+      </View>
+      <View style={styles.inputContainer}>
+        <TextInput
+          placeholder="What Do You Have In Mind, Buddy?"
+          style={[styles.input, { color: text, borderColor: text }]}
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={handleAddNotes}
+        />
+        <Pressable style={styles.addBtn} onPress={handleAddNotes}>
+          <Ionicons name="add" size={24} color="white" />
+        </Pressable>
+      </View>
+
+      <FlatList
+        data={notes}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => index.toString()}
+      />
+    </View>
   );
 }
 
+
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: "white",
+    padding: 15,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  cont:{
+    flexDirection: "row",
+    justifyContent:"space-between",
+    padding:5
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  title: {
+    color: "#14313aff",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  todoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    marginVertical: 6,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    width: "90%",
+    gap: 10,
+  },
+  todoText: { flex: 1, fontSize: 16 },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginVertical:10
+  },
+  addBtn: {
+    backgroundColor: "dodgerblue",
+    borderRadius: 8,
+    padding: 10,
+    marginVertical:10
+  },
+  editInput: {
+    flex: 1,
+    borderBottomWidth: 1,
+    marginRight: 10,
+  },
+  swipeDelete: {
+    backgroundColor: "red",
+    justifyContent: "center",
+    alignItems: "center",
+    // width: 70,
   },
 });
+
+// inputRow: { flexDirection: "row", gap: 10 },
+// input: {
+//   flex: 1,
+//   borderWidth: 1,
+//   borderRadius: 8,
+//   padding: 10,
+// },
+// addBtn: {
+//   backgroundColor: "dodgerblue",
+//   borderRadius: 8,
+//   padding: 10,
+// },
